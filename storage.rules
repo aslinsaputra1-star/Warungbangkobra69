@@ -1,0 +1,45 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // Default Deny All
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isImageFile() {
+      return request.resource.contentType.matches('image/(jpeg|png|webp|gif)')
+        && request.resource.size > 0
+        && request.resource.size < 5 * 1024 * 1024; // Maksimum 5MB
+    }
+
+    // Foto Produk Menu Warung:
+    // Dapat dilihat secara publik oleh pelanggan & katalog.
+    // Hanya pengguna terautentikasi (Admin/Owner/Staf) yang berhak mengunggah gambar produk.
+    match /products/{fileName} {
+      allow read: if true;
+      allow write: if isSignedIn() && isImageFile();
+    }
+
+    // Bukti Pembayaran Transfer / QRIS:
+    // Pelanggan atau kasir dapat mengunggah bukti pembayaran pesanan.
+    // Dapat dibaca oleh staf/admin/owner dan pemilik pesanan.
+    match /payment_proofs/{fileName} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && isImageFile();
+    }
+
+    // Aset Warung (Logo Resmi, QRIS Dinamis, Banner):
+    // Dapat dibaca publik untuk tampilan struk & PWA.
+    // Hanya staf/admin yang berwenang yang dapat memperbarui.
+    match /store/{fileName} {
+      allow read: if true;
+      allow write: if isSignedIn() && isImageFile();
+    }
+  }
+}

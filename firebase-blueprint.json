@@ -1,0 +1,655 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile with role-based access control. Does NOT store passwords or PINs in Firestore; credentials are managed by Firebase Authentication.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "Firebase Auth UID of the user",
+          "maxLength": 128
+        },
+        "email": {
+          "type": "string",
+          "description": "User email address",
+          "maxLength": 120
+        },
+        "nama": {
+          "type": "string",
+          "description": "Full name of the user",
+          "maxLength": 100
+        },
+        "role": {
+          "type": "string",
+          "description": "Role in the system (Owner, Admin, Kasir, Staff, Customer)",
+          "enum": ["Owner", "Admin", "Kasir", "Staff", "Customer", "owner", "admin", "kasir", "staff", "customer", "ADMIN", "KASIR"]
+        },
+        "no_hp": {
+          "type": "string",
+          "description": "Phone or WhatsApp number",
+          "maxLength": 32
+        },
+        "avatar_url": {
+          "type": "string",
+          "description": "Profile picture URL",
+          "maxLength": 500
+        },
+        "status": {
+          "type": "string",
+          "description": "User account status (Aktif, Nonaktif)",
+          "enum": ["Aktif", "Nonaktif"]
+        },
+        "created_at": {
+          "type": "string",
+          "description": "ISO timestamp of account creation",
+          "maxLength": 64
+        },
+        "updated_at": {
+          "type": "string",
+          "description": "ISO timestamp of last account update",
+          "maxLength": 64
+        }
+      },
+      "required": ["uid", "nama", "role", "status"]
+    },
+    "Product": {
+      "title": "Product",
+      "description": "Warung Bang Kobra menu catalog item",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Product SKU or unique ID",
+          "maxLength": 64
+        },
+        "nama": {
+          "type": "string",
+          "description": "Product display name",
+          "maxLength": 120
+        },
+        "kategori": {
+          "type": "string",
+          "description": "Product category",
+          "maxLength": 50
+        },
+        "harga_modal": {
+          "type": "number",
+          "description": "Cost price"
+        },
+        "harga_jual": {
+          "type": "number",
+          "description": "Selling price"
+        },
+        "stok": {
+          "type": "number",
+          "description": "Current stock count"
+        },
+        "satuan": {
+          "type": "string",
+          "description": "Unit (Pcs, Porsi, Gelas, dll)",
+          "maxLength": 32
+        },
+        "deskripsi": {
+          "type": "string",
+          "description": "Product description",
+          "maxLength": 500
+        },
+        "gambar_url": {
+          "type": "string",
+          "description": "Product image URL",
+          "maxLength": 500
+        },
+        "status": {
+          "type": "string",
+          "description": "Availability status (Aktif, Nonaktif)",
+          "enum": ["Aktif", "Nonaktif"]
+        },
+        "varian": {
+          "type": "array",
+          "description": "Available flavor or preparation variants"
+        },
+        "is_favorit": {
+          "type": "boolean",
+          "description": "Featured in favorite menu section"
+        },
+        "is_terlaris": {
+          "type": "boolean",
+          "description": "Featured in bestseller menu section"
+        },
+        "updated_at": {
+          "type": "string",
+          "description": "ISO timestamp of last update",
+          "maxLength": 64
+        }
+      },
+      "required": ["id", "nama", "kategori", "harga_jual", "stok"]
+    },
+    "Category": {
+      "title": "Category",
+      "description": "Product category classification",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Category identifier",
+          "maxLength": 64
+        },
+        "nama": {
+          "type": "string",
+          "description": "Category name",
+          "maxLength": 64
+        },
+        "deskripsi": {
+          "type": "string",
+          "description": "Category description",
+          "maxLength": 200
+        },
+        "icon": {
+          "type": "string",
+          "description": "Icon identifier",
+          "maxLength": 64
+        },
+        "urutan": {
+          "type": "number",
+          "description": "Display order"
+        },
+        "status": {
+          "type": "string",
+          "description": "Status (Aktif, Nonaktif)",
+          "enum": ["Aktif", "Nonaktif"]
+        }
+      },
+      "required": ["id", "nama"]
+    },
+    "Order": {
+      "title": "Order",
+      "description": "Customer order or cashier POS transaction",
+      "type": "object",
+      "properties": {
+        "id_transaksi": {
+          "type": "string",
+          "description": "Unique transaction ID",
+          "maxLength": 64
+        },
+        "tanggal": {
+          "type": "string",
+          "description": "Date YYYY-MM-DD",
+          "maxLength": 32
+        },
+        "jam": {
+          "type": "string",
+          "description": "Time HH:mm:ss",
+          "maxLength": 32
+        },
+        "kasir": {
+          "type": "string",
+          "description": "Cashier or channel",
+          "maxLength": 64
+        },
+        "customerId": {
+          "type": "string",
+          "description": "Optional customer Firebase Auth UID",
+          "maxLength": 128
+        },
+        "nama_pelanggan": {
+          "type": "string",
+          "description": "Customer name",
+          "maxLength": 100
+        },
+        "no_whatsapp": {
+          "type": "string",
+          "description": "Customer WhatsApp phone number",
+          "maxLength": 32
+        },
+        "email_pelanggan": {
+          "type": "string",
+          "description": "Optional customer email for digital receipt",
+          "maxLength": 120
+        },
+        "subtotal": {
+          "type": "number",
+          "description": "Subtotal amount"
+        },
+        "diskon": {
+          "type": "number",
+          "description": "Discount amount"
+        },
+        "biaya": {
+          "type": "number",
+          "description": "Additional or delivery charges"
+        },
+        "total": {
+          "type": "number",
+          "description": "Total payment amount"
+        },
+        "metode_pembayaran": {
+          "type": "string",
+          "description": "Payment method",
+          "maxLength": 32
+        },
+        "status_pembayaran": {
+          "type": "string",
+          "description": "Payment verification status",
+          "enum": ["MENUNGGU", "DIVERIFIKASI", "LUNAS", "DITOLAK"]
+        },
+        "bukti_pembayaran_url": {
+          "type": "string",
+          "description": "Uploaded payment proof image URL or data URI"
+        },
+        "uang_diterima": {
+          "type": "number",
+          "description": "Cash received"
+        },
+        "kembalian": {
+          "type": "number",
+          "description": "Change returned"
+        },
+        "status": {
+          "type": "string",
+          "description": "Order status",
+          "enum": ["Pending", "Diproses", "Selesai", "Dibatalkan"]
+        },
+        "tahap_pesanan": {
+          "type": "string",
+          "description": "Granular online order tracking stage",
+          "enum": ["MENUNGGU", "DIKONFIRMASI", "DIPROSES", "SIAP", "SELESAI", "DIBATALKAN"]
+        },
+        "timeline_status": {
+          "type": "array",
+          "description": "Timestamped order stage transitions"
+        },
+        "tipe_pesanan": {
+          "type": "string",
+          "description": "Takeaway or Delivery",
+          "maxLength": 32
+        },
+        "alamat_pengantaran": {
+          "type": "string",
+          "description": "Delivery address",
+          "maxLength": 300
+        },
+        "catatan_pesanan": {
+          "type": "string",
+          "description": "Notes",
+          "maxLength": 300
+        },
+        "created_at": {
+          "type": "string",
+          "description": "Creation timestamp",
+          "maxLength": 64
+        },
+        "items": {
+          "type": "array",
+          "description": "List of ordered items"
+        }
+      },
+      "required": ["id_transaksi", "tanggal", "jam", "nama_pelanggan", "total", "metode_pembayaran", "status", "created_at"]
+    },
+    "Expense": {
+      "title": "Expense",
+      "description": "Operational expense record. Restricted from Customers and Cashiers.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Expense ID",
+          "maxLength": 64
+        },
+        "tanggal": {
+          "type": "string",
+          "description": "Date YYYY-MM-DD",
+          "maxLength": 32
+        },
+        "kategori": {
+          "type": "string",
+          "description": "Expense category",
+          "maxLength": 64
+        },
+        "keterangan": {
+          "type": "string",
+          "description": "Expense description",
+          "maxLength": 250
+        },
+        "jumlah": {
+          "type": "number",
+          "description": "Expense amount"
+        },
+        "catatan": {
+          "type": "string",
+          "description": "Additional notes",
+          "maxLength": 250
+        },
+        "diinput_oleh": {
+          "type": "string",
+          "description": "Creator identifier",
+          "maxLength": 64
+        },
+        "created_at": {
+          "type": "string",
+          "description": "Creation timestamp",
+          "maxLength": 64
+        }
+      },
+      "required": ["id", "tanggal", "kategori", "keterangan", "jumlah", "created_at"]
+    },
+    "Report": {
+      "title": "Report",
+      "description": "Daily/Monthly financial analytics report. Restricted from Customers and Cashiers.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Report ID",
+          "maxLength": 64
+        },
+        "tanggal": {
+          "type": "string",
+          "description": "Period date",
+          "maxLength": 32
+        },
+        "total_omset": {
+          "type": "number",
+          "description": "Total revenue"
+        },
+        "total_transaksi": {
+          "type": "number",
+          "description": "Transaction count"
+        },
+        "total_pengeluaran": {
+          "type": "number",
+          "description": "Total expenses"
+        },
+        "laba_bersih": {
+          "type": "number",
+          "description": "Net profit"
+        },
+        "created_at": {
+          "type": "string",
+          "description": "Generated timestamp",
+          "maxLength": 64
+        }
+      },
+      "required": ["id", "tanggal", "total_omset", "total_transaksi", "created_at"]
+    },
+    "Customer": {
+      "title": "Customer",
+      "description": "Customer contact and loyalty record",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Customer ID",
+          "maxLength": 64
+        },
+        "nama": {
+          "type": "string",
+          "description": "Customer name",
+          "maxLength": 100
+        },
+        "no_whatsapp": {
+          "type": "string",
+          "description": "Customer WhatsApp phone number",
+          "maxLength": 32
+        },
+        "alamat": {
+          "type": "string",
+          "description": "Customer address",
+          "maxLength": 300
+        },
+        "total_transaksi": {
+          "type": "number",
+          "description": "Total completed orders"
+        },
+        "total_belanja": {
+          "type": "number",
+          "description": "Total expenditure amount"
+        },
+        "last_order": {
+          "type": "string",
+          "description": "Timestamp of last purchase",
+          "maxLength": 64
+        }
+      },
+      "required": ["id", "nama"]
+    },
+    "StockMutation": {
+      "title": "StockMutation",
+      "description": "Inventory stock movement log",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Stock mutation ID",
+          "maxLength": 64
+        },
+        "tanggal": {
+          "type": "string",
+          "description": "Date",
+          "maxLength": 32
+        },
+        "id_produk": {
+          "type": "string",
+          "description": "Product ID",
+          "maxLength": 64
+        },
+        "nama_produk": {
+          "type": "string",
+          "description": "Product name",
+          "maxLength": 120
+        },
+        "jenis": {
+          "type": "string",
+          "description": "Movement type",
+          "enum": ["in", "out", "adjustment"]
+        },
+        "qty": {
+          "type": "number",
+          "description": "Quantity moved"
+        },
+        "stok_sebelum": {
+          "type": "number",
+          "description": "Stock prior to mutation"
+        },
+        "stok_sesudah": {
+          "type": "number",
+          "description": "Stock after mutation"
+        },
+        "keterangan": {
+          "type": "string",
+          "description": "Reason or note",
+          "maxLength": 200
+        }
+      },
+      "required": ["id", "id_produk", "jenis", "qty"]
+    },
+    "StoreSettings": {
+      "title": "StoreSettings",
+      "description": "Global store and POS operational configuration",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Setting document ID",
+          "maxLength": 64
+        },
+        "storeName": {
+          "type": "string",
+          "description": "Store display name",
+          "maxLength": 100
+        },
+        "tagline": {
+          "type": "string",
+          "description": "Store tagline",
+          "maxLength": 150
+        },
+        "address": {
+          "type": "string",
+          "description": "Store address",
+          "maxLength": 250
+        },
+        "whatsappNumber": {
+          "type": "string",
+          "description": "Official WhatsApp number",
+          "maxLength": 32
+        },
+        "logoUrl": {
+          "type": "string",
+          "description": "Logo URL",
+          "maxLength": 500
+        },
+        "receiptFooter": {
+          "type": "string",
+          "description": "Footer text on printed receipts",
+          "maxLength": 200
+        },
+        "taxPercent": {
+          "type": "number",
+          "description": "Tax percentage"
+        }
+      },
+      "required": ["id", "storeName"]
+    },
+    "AuditLog": {
+      "title": "AuditLog",
+      "description": "Immutable security and audit activity trail for store operations",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique log identifier",
+          "maxLength": 64
+        },
+        "user_id": {
+          "type": "string",
+          "description": "User UID who performed the action",
+          "maxLength": 128
+        },
+        "user_name": {
+          "type": "string",
+          "description": "Name of the user",
+          "maxLength": 100
+        },
+        "user_role": {
+          "type": "string",
+          "description": "Role of the user at the time of action",
+          "maxLength": 32
+        },
+        "action": {
+          "type": "string",
+          "description": "Action performed (e.g. TAMBAH_PRODUK, MUTASI_STOK, EDIT_HARGA, SETTLEMENT_PO)",
+          "maxLength": 64
+        },
+        "module": {
+          "type": "string",
+          "description": "System module (e.g. PRODUK, KASIR, STOK, PENGELUARAN, SETTING)",
+          "maxLength": 64
+        },
+        "description": {
+          "type": "string",
+          "description": "Detailed description of the change",
+          "maxLength": 300
+        },
+        "timestamp": {
+          "type": "string",
+          "description": "ISO timestamp of event",
+          "maxLength": 64
+        }
+      },
+      "required": ["id", "action", "description", "timestamp"]
+    },
+    "Notification": {
+      "title": "Notification",
+      "description": "System and customer order alert notification",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Notification identifier",
+          "maxLength": 64
+        },
+        "title": {
+          "type": "string",
+          "description": "Notification title",
+          "maxLength": 100
+        },
+        "message": {
+          "type": "string",
+          "description": "Notification content",
+          "maxLength": 300
+        },
+        "type": {
+          "type": "string",
+          "description": "Notification type (order, stock, payment, system)",
+          "enum": ["order", "stock", "payment", "system"]
+        },
+        "read": {
+          "type": "boolean",
+          "description": "Read status"
+        },
+        "order_id": {
+          "type": "string",
+          "description": "Associated order ID if applicable",
+          "maxLength": 64
+        },
+        "target_uid": {
+          "type": "string",
+          "description": "Target user UID or empty for all staff",
+          "maxLength": 128
+        },
+        "created_at": {
+          "type": "string",
+          "description": "Creation timestamp",
+          "maxLength": 64
+        }
+      },
+      "required": ["id", "title", "message", "type", "created_at"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profiles with roles. Registration, creation, listing, and deletion are strictly restricted to Owner. Passwords and PINs are NOT stored in Firestore; authentication is handled securely."
+    },
+    "/products/{productId}": {
+      "schema": "Product",
+      "description": "Product menu readable by customers. Creation, editing, and deletion are restricted to Admin and Owner."
+    },
+    "/categories/{categoryId}": {
+      "schema": "Category",
+      "description": "Categories readable by public/customers. Creation, editing, and deletion are restricted to Admin and Owner."
+    },
+    "/orders/{orderId}": {
+      "schema": "Order",
+      "description": "POS transactions, online orders, and Event/PO orders. Read restricted to customer owner or staff. Updates allowed for staff or customer proof uploads; deletion restricted to Admin and Owner."
+    },
+    "/expenses/{expenseId}": {
+      "schema": "Expense",
+      "description": "Store operational expenses restricted strictly to Owner and Admin. Cashiers and customers have no access."
+    },
+    "/reports/{reportId}": {
+      "schema": "Report",
+      "description": "Financial and net profit reports restricted strictly to Owner and Admin."
+    },
+    "/customers/{customerId}": {
+      "schema": "Customer",
+      "description": "Customer contact data restricted to staff/cashier POS operations and individual customer profile ownership."
+    },
+    "/stock_mutations/{mutationId}": {
+      "schema": "StockMutation",
+      "description": "Inventory movement records accessible to staff, cashier, and admin; customers have no access."
+    },
+    "/settings/{settingId}": {
+      "schema": "StoreSettings",
+      "description": "Global store settings readable by public for checkout rules, editable strictly by Admin and Owner."
+    },
+    "/audit_logs/{logId}": {
+      "schema": "AuditLog",
+      "description": "Immutable audit log trail readable only by Owner and Admin."
+    },
+    "/notifications/{notifId}": {
+      "schema": "Notification",
+      "description": "System and customer order notifications synced in real-time."
+    }
+  }
+}

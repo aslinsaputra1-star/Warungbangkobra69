@@ -1,0 +1,326 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global Safety Net - Default Deny Catch-All
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Core Verification Helpers ---
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Bootstrap check for developer/owner runtime email
+    function isBootstrapOwner() {
+      return isSignedIn() &&
+        request.auth.token.email == 'rayyanarasid549@gmail.com' &&
+        request.auth.token.email_verified == true;
+    }
+
+    function hasUserDoc() {
+      return isSignedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function getUserDoc() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    // Role resolution is strictly server-authoritative from Firestore users document
+    function getUserRole() {
+      return hasUserDoc() ? getUserDoc().role : (isBootstrapOwner() ? 'Owner' : 'Customer');
+    }
+
+    // OWNER: Seluruh akses termasuk pengaturan kritis dan audit
+    function isOwner() {
+      return isSignedIn() && (
+        isBootstrapOwner() ||
+        getUserRole() in ['Owner', 'owner', 'OWNER']
+      );
+    }
+
+    // ADMIN: Operasional sesuai izin (produk, kategori, laporan, pengeluaran, audit)
+    function isAdmin() {
+      return isOwner() || (
+        isSignedIn() && (
+          getUserRole() in ['Admin', 'admin', 'ADMIN']
+        )
+      );
+    }
+
+    // KASIR: Transaksi POS, pesanan, pelanggan, riwayat; tanpa pengaturan kritis & tanpa laporan
+    function isKasir() {
+      return isAdmin() || (
+        isSignedIn() && (
+          getUserRole() in ['Kasir', 'kasir', 'KASIR']
+        )
+      );
+    }
+
+    // STAFF: Melihat pesanan dan memperbarui status yang diizinkan, mutasi stok dapur
+    function isStaff() {
+      return isKasir() || (
+        isSignedIn() && (
+          getUserRole() in ['Staff', 'staff', 'STAFF']
+        )
+      );
+    }
+
+    // --- Entity Validation Helpers ---
+
+    // USERS: Never store raw password or PIN in Firestore!
+    function isValidUser(data) {
+      return data.uid is string &&
+        data.uid.size() > 0 &&
+        data.uid.size() <= 128 &&
+        data.nama is string &&
+        data.nama.size() > 0 &&
+        data.nama.size() <= 100 &&
+        data.role in ['Owner', 'Admin', 'Kasir', 'Staff', 'Customer', 'owner', 'admin', 'kasir', 'staff', 'customer', 'ADMIN', 'KASIR'] &&
+        (!('password' in data)) &&
+        (!('pin' in data)) &&
+        (!('raw_password' in data));
+    }
+
+    function isValidProduct(data) {
+      return data.id is string &&
+        data.id.size() > 0 &&
+        data.id.size() <= 64 &&
+        data.nama is string &&
+        data.nama.size() > 0 &&
+        data.nama.size() <= 120 &&
+        data.kategori is string &&
+        data.kategori.size() > 0 &&
+        data.kategori.size() <= 50 &&
+        data.harga_jual is number &&
+        data.harga_jual >= 0 &&
+        data.stok is number &&
+        (!('password' in data));
+    }
+
+    function isValidCategory(data) {
+      return data.id is string &&
+        data.id.size() > 0 &&
+        data.id.size() <= 64 &&
+        data.nama is string &&
+        data.nama.size() > 0 &&
+        data.nama.size() <= 64 &&
+        (!('password' in data));
+    }
+
+    function isValidOrder(data) {
+      return data.id_transaksi is string &&
+        data.id_transaksi.size() > 0 &&
+        data.id_transaksi.size() <= 64 &&
+        data.nama_pelanggan is string &&
+        data.nama_pelanggan.size() > 0 &&
+        data.nama_pelanggan.size() <= 100 &&
+        data.total is number &&
+        data.total >= 0 &&
+        data.status in ['Pending', 'Diproses', 'Selesai', 'Dibatalkan'] &&
+        (!('password' in data));
+    }
+
+    function isValidExpense(data) {
+      return data.id is string &&
+        data.id.size() > 0 &&
+        data.id.size() <= 64 &&
+        data.kategori is string &&
+        data.kategori.size() > 0 &&
+        data.kategori.size() <= 64 &&
+        data.jumlah is number &&
+        data.jumlah >= 0 &&
+        (!('password' in data));
+    }
+
+    function isValidReport(data) {
+      return data.id is string &&
+        data.id.size() > 0 &&
+        data.id.size() <= 64 &&
+        data.total_omset is number &&
+        data.total_transaksi is number &&
+        (!('password' in data));
+    }
+
+    // --- Collection Security Rules ---
+
+    // Ping / connection test
+    match /_connection_test/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // USERS COLLECTION
+    // Owner mengelola semua akun. Admin mengelola akun staf/kasir.
+    // Pengguna hanya dapat membaca dan memperbarui profil miliknya sendiri tanpa bisa mengubah role.
+    match /users/{userId} {
+      allow get: if isValidId(userId) && (
+        isOwner() ||
+        isAdmin() ||
+        (isSignedIn() && request.auth.uid == userId)
+      );
+
+      allow list: if isOwner() || isAdmin();
+
+      // Owner berhak membuat akun apapun. Pelanggan baru hanya bisa mendaftarkan profil Customer dirinya.
+      allow create: if isValidId(userId) && isValidUser(incoming()) && (
+        isOwner() ||
+        (isSignedIn() && request.auth.uid == userId && incoming().role in ['Customer', 'customer'])
+      );
+
+      allow update: if isValidId(userId) && isValidUser(incoming()) && (
+        isOwner() ||
+        (isAdmin() && existing().role != 'Owner' && incoming().role != 'Owner') ||
+        (isSignedIn() && request.auth.uid == userId && incoming().role == existing().role && incoming().diff(existing()).affectedKeys().hasOnly(['nama', 'no_hp', 'no_whatsapp', 'alamat', 'avatar_url', 'email', 'status', 'updated_at']))
+      );
+
+      allow delete: if isValidId(userId) && isOwner();
+    }
+
+    // PRODUCTS CATALOG
+    // Publik & Pelanggan dapat membaca katalog menu.
+    // Hanya Admin dan Owner yang berhak menambah, mengedit harga/stok, atau menghapus produk.
+    match /products/{productId} {
+      allow read: if true;
+      allow create: if isValidId(productId) && isValidProduct(incoming()) && incoming().id == productId && isAdmin();
+      allow update: if isValidId(productId) && isValidProduct(incoming()) && incoming().id == existing().id && isAdmin();
+      allow delete: if isValidId(productId) && isAdmin();
+    }
+
+    // CATEGORIES
+    // Publik & Pelanggan dapat membaca kategori menu.
+    // Hanya Admin dan Owner yang berhak mengubah kategori.
+    match /categories/{categoryId} {
+      allow read: if true;
+      allow create: if isValidId(categoryId) && isValidCategory(incoming()) && incoming().id == categoryId && isAdmin();
+      allow update: if isValidId(categoryId) && isValidCategory(incoming()) && incoming().id == existing().id && isAdmin();
+      allow delete: if isValidId(categoryId) && isAdmin();
+    }
+
+    // ORDERS & POS TRANSACTIONS & PO ACARA
+    // Pelanggan hanya bisa melihat pesanan miliknya sendiri. Staf/Kasir/Admin/Owner dapat melihat semua pesanan.
+    // Pembuatan pesanan divalidasi skema, total non-negatif, status awal tidak boleh langsung Selesai.
+    match /orders/{orderId} {
+      allow get: if isValidId(orderId) && (
+        isStaff() ||
+        (isSignedIn() && (
+          resource.data.customerId == request.auth.uid ||
+          resource.data.customer_uid == request.auth.uid ||
+          orderId == request.auth.uid
+        ))
+      );
+
+      allow list: if isStaff() || (
+        isSignedIn() && (
+          resource.data.customerId == request.auth.uid ||
+          resource.data.customer_uid == request.auth.uid
+        )
+      );
+
+      allow create: if isValidId(orderId) && isValidOrder(incoming()) && (
+        // Pembuatan awal harus status Pending atau Diproses, tidak bisa forged 'Selesai'
+        incoming().status in ['Pending', 'Diproses'] || isKasir()
+      );
+
+      allow update: if isValidId(orderId) && isValidOrder(incoming()) && (
+        // Staf/Kasir/Admin dapat update alur pesanan
+        isStaff() ||
+        // Pelanggan pemilik hanya dapat melampirkan bukti pembayaran atau catatan
+        (isSignedIn() && (resource.data.customerId == request.auth.uid || resource.data.customer_uid == request.auth.uid) &&
+          incoming().diff(existing()).affectedKeys().hasOnly(['bukti_pembayaran_url', 'bukti_pembayaran_at', 'status_pembayaran', 'catatan_pesanan', 'updated_at']))
+      );
+
+      allow delete: if isValidId(orderId) && isAdmin();
+    }
+
+    // EXPENSES COLLECTION
+    // Rahasia operasional: Hanya Owner dan Admin yang dapat membaca atau menginput pengeluaran.
+    // Kasir dan Pelanggan DILARANG membaca pengeluaran.
+    match /expenses/{expenseId} {
+      allow read: if isAdmin();
+      allow create, update: if isValidId(expenseId) && isValidExpense(incoming()) && incoming().id == expenseId && isAdmin();
+      allow delete: if isValidId(expenseId) && isOwner();
+    }
+
+    // REPORTS & FINANCIAL ANALYTICS
+    // Laporan omset & laba bersih warung: Hanya Owner dan Admin yang memiliki akses.
+    // Kasir, Staf dapur, dan Pelanggan DILARANG membaca laporan.
+    match /reports/{reportId} {
+      allow read: if isAdmin();
+      allow create, update: if isValidId(reportId) && isValidReport(incoming()) && incoming().id == reportId && isAdmin();
+      allow delete: if isValidId(reportId) && isOwner();
+    }
+
+    // CUSTOMERS COLLECTION
+    // Data pelanggan (WhatsApp, alamat) dilindungi.
+    // Staf/Kasir/Admin dapat mengakses untuk layanan POS. Pelanggan hanya bisa melihat & update profil dirinya.
+    match /customers/{customerId} {
+      allow get: if isValidId(customerId) && (
+        isStaff() ||
+        (isSignedIn() && (customerId == request.auth.uid || resource.data.id == request.auth.uid || resource.data.uid == request.auth.uid))
+      );
+
+      allow list: if isStaff();
+
+      allow create: if isValidId(customerId) && incoming().id == customerId && (
+        isStaff() || (isSignedIn() && customerId == request.auth.uid)
+      );
+
+      allow update: if isValidId(customerId) && incoming().id == existing().id && (
+        isStaff() || (isSignedIn() && (customerId == request.auth.uid || existing().id == request.auth.uid))
+      );
+
+      allow delete: if isValidId(customerId) && isAdmin();
+    }
+
+    // STOCK MUTATIONS
+    // Data inventaris & mutasi stok gudang: Dikhususkan untuk Staf, Kasir, Admin, Owner.
+    // Pelanggan DILARANG mengakses histori mutasi stok internal.
+    match /stock_mutations/{mutationId} {
+      allow read: if isStaff();
+      allow create: if isValidId(mutationId) && incoming().id == mutationId && incoming().qty is number && isStaff();
+      allow update, delete: if isValidId(mutationId) && isAdmin();
+    }
+
+    // STORE SETTINGS
+    // Pengaturan toko (Nama warung, Jam buka, Biaya antar DQM, No WA, QRIS) dapat dibaca publik.
+    // Hanya Owner dan Admin yang berhak mengubah pengaturan warung!
+    match /settings/{settingId} {
+      allow read: if true;
+      allow write: if isValidId(settingId) && isAdmin() && incoming().storeName is string && incoming().storeName.size() <= 100;
+    }
+
+    // AUDIT LOGS
+    // Jejak audit perubahan sistem & transaksi: Hanya Owner dan Admin yang dapat membaca audit.
+    // Staf/Kasir/Admin dapat mencatat aktivitas ke audit log saat bertugas.
+    // Hapus log hanya diperbolehkan oleh Owner.
+    match /audit_logs/{logId} {
+      allow read: if isAdmin();
+      allow create: if isValidId(logId) && isSignedIn();
+      allow update: if false; // Audit logs are immutable append-only
+      allow delete: if isValidId(logId) && isOwner();
+    }
+
+    // NOTIFICATIONS
+    // Notifikasi sistem dan pesanan baru.
+    match /notifications/{notifId} {
+      allow read: if isStaff() || (isSignedIn() && resource.data.target_uid == request.auth.uid);
+      allow create: if isValidId(notifId) && isSignedIn();
+      allow update: if isStaff() || (isSignedIn() && resource.data.target_uid == request.auth.uid);
+      allow delete: if isAdmin();
+    }
+  }
+}
